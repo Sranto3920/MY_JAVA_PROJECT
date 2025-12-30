@@ -151,12 +151,29 @@ public class MedicineResultsPage {
 
     private void rebuildRows(String location, String shop, String brand) {
         rows.clear();
+        String q = medicineName;
         repo.all().stream()
-                .filter(m -> m.getName().equalsIgnoreCase(medicineName))
+                .filter(m -> nameMatches(m.getName(), q))
                 .filter(m -> location == null || Objects.equals(m.getLocation(), location))
                 .filter(m -> shop == null || Objects.equals(m.getShop(), shop))
                 .filter(m -> brand == null || Objects.equals(m.getBrand(), brand))
                 .forEach(m -> rows.add(new SelectionRow(m)));
+    }
+
+    private boolean nameMatches(String candidate, String query) {
+        String c = normalize(candidate);
+        String q = normalize(query);
+        if (c.equalsIgnoreCase(q)) return true;
+        return c.contains(q.toLowerCase()) || q.contains(c.toLowerCase());
+    }
+
+    private String normalize(String s) {
+        if (s == null) return "";
+        String normalized = s
+            .replace('\u00A0', ' ')
+            .replaceAll("[\\u2010-\\u2015\\u2212]", "-");
+        normalized = normalized.trim().replaceAll("\\s+", " ");
+        return normalized.toLowerCase();
     }
 
     private void showFilterDialog() {

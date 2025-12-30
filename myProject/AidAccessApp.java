@@ -19,6 +19,8 @@ import javafx.stage.Stage;
 
 import java.util.List;
 
+import com.example.mediconnect.DoctorPortalLauncher;
+
 import myProject.ambulance.AmbulanceServicePage;
 import myProject.medicine.BuyPage;
 import myProject.medicine.MedicineHomePage;
@@ -36,7 +38,7 @@ public class AidAccessApp extends Application implements MedicineNavigator {
     private MedicineRepository medicineRepository;
 
     private AmbulanceServicePage ambulancePage;
-    private javafx.scene.Node doctorPlaceholder;
+    private DoctorPortalLauncher doctorLauncher;
     private javafx.scene.Node landingView;
 
     @Override
@@ -44,7 +46,7 @@ public class AidAccessApp extends Application implements MedicineNavigator {
         this.stage = primaryStage;
         this.medicineRepository = new MedicineRepository();
         this.ambulancePage = new AmbulanceServicePage();
-        this.doctorPlaceholder = createDoctorPlaceholder();
+        this.doctorLauncher = new DoctorPortalLauncher(primaryStage);
         this.landingView = createLandingView();
 
         shell = new BorderPane();
@@ -70,7 +72,7 @@ public class AidAccessApp extends Application implements MedicineNavigator {
         Button ambulanceBtn = new Button("Ambulance");
         Button helpBtn = new Button("Help");
         homeBtn.setOnAction(e -> showLanding());
-        doctorBtn.setOnAction(e -> showDoctorPlaceholder());
+        doctorBtn.setOnAction(e -> openDoctorPortal());
         medicineBtn.setOnAction(e -> showMedicinesHome());
         ambulanceBtn.setOnAction(e -> showAmbulance());
         helpBtn.setOnAction(e -> ClientFX.openHelpChat());
@@ -112,22 +114,8 @@ public class AidAccessApp extends Application implements MedicineNavigator {
         setContent(landingView);
     }
 
-    private void showDoctorPlaceholder() {
-        setContent(doctorPlaceholder);
-    }
-
-    private javafx.scene.Node createDoctorPlaceholder() {
-        Label headline = new Label("Doctor appointments coming soon");
-        headline.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-        Label subtitle = new Label("Check back later or use Medicines and Ambulance in the meantime.");
-        subtitle.setStyle("-fx-text-fill: #444;");
-        Button goMedicines = new Button("Go to Medicines");
-        goMedicines.setStyle("-fx-background-color: #0b8793; -fx-text-fill: white; -fx-padding: 8 14; -fx-background-radius: 8;");
-        goMedicines.setOnAction(e -> showMedicinesHome());
-
-        VBox box = new VBox(12, headline, subtitle, goMedicines);
-        box.setAlignment(Pos.CENTER);
-        return box;
+    private void openDoctorPortal() {
+        doctorLauncher.open();
     }
 
     private javafx.scene.Node createLandingView() {
@@ -140,7 +128,7 @@ public class AidAccessApp extends Application implements MedicineNavigator {
         tagline.setTextFill(Color.web("#2c3e50"));
 
         HBox cards = new HBox(16,
-                serviceCard("Doctor", "Book consultations (coming soon)", this::showDoctorPlaceholder),
+        serviceCard("Doctor", "Book consultations", this::openDoctorPortal),
                 serviceCard("Medicines", "Search, compare, and order meds", this::showMedicinesHome),
                 serviceCard("Ambulance", "Request rapid dispatch", this::showAmbulance)
         );

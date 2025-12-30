@@ -6,6 +6,9 @@ import javafx.collections.ObservableList;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -13,7 +16,8 @@ import java.util.stream.Collectors;
 
 public class MedicineRepository {
     private final ObservableList<Medicine> all = FXCollections.observableArrayList();
-    private static final String CSV_FILE = "medicine/medicines.csv";
+    private static final String MED_EX_CSV = "medicine/medex_medicines.csv";
+    private static final String FALLBACK_CSV = "medicine/medicines.csv";
 
     public MedicineRepository() {
         loadData();
@@ -22,8 +26,11 @@ public class MedicineRepository {
     public ObservableList<Medicine> all() { return all; }
 
     public List<String> distinctNames() {
-        return all.stream().map(Medicine::getName)
-                .distinct().sorted().collect(Collectors.toList());
+        return all.stream()
+            .map(Medicine::getName)
+            .distinct()
+            .sorted(String.CASE_INSENSITIVE_ORDER)
+            .collect(Collectors.toList());
     }
 
     public Set<String> distinctLocations() {
@@ -39,25 +46,115 @@ public class MedicineRepository {
     }
 
     private void loadData() {
-        try (BufferedReader reader = new BufferedReader(new FileReader(CSV_FILE))) {
-            String line;
-            reader.readLine(); // skip header
-            while ((line = reader.readLine()) != null) {
-                String[] parts = line.split(",");
-                if (parts.length == 5) {
-                    String name = parts[0].trim();
-                    String brand = parts[1].trim();
-                    String shop = parts[2].trim();
-                    String location = parts[3].trim();
-                    double price = Double.parseDouble(parts[4].trim());
-                    all.add(new Medicine(name, brand, shop, location, price));
-                }
-            }
-            System.out.println("Loaded " + all.size() + " medicines from CSV.");
-        } catch (IOException | NumberFormatException e) {
-            System.err.println("Warning: Could not load CSV (" + e.getMessage() + "). Using in-memory data.");
+        boolean loaded = loadFromFile(MED_EX_CSV, true);
+        if (!loaded) {
+            loaded = loadFromFile(FALLBACK_CSV, false);
+        }
+
+        if (!loaded) {
+            System.err.println("Warning: No CSV data loaded. Using in-memory data.");
             seedInMemory();
         }
+    }
+
+    private boolean loadFromFile(String path, boolean isMedExFormat) {
+        if (!Files.exists(Path.of(path))) {
+            return false;
+        }
+
+        int loadedRows = 0;
+        int skippedRows = 0;
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
+            reader.readLine(); // skip header
+            String pending = null;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (pending != null) {
+                    line = pending + "\n" + line;
+                }
+
+                if (!quotesBalanced(line)) {
+                    pending = line;
+                    continue;
+                }
+
+                List<String> parts = parseCsvLine(line);
+                pending = null;
+
+                try {
+                    if (isMedExFormat && parts.size() >= 6) {
+                        String name = normalizeName(parts.get(0));
+                        String brand = parts.get(2).trim();
+                        String shop = "MedEx";
+                        String location = "Online";
+                        double price = parsePrice(parts.get(4));
+                        all.add(new Medicine(name, brand, shop, location, price));
+                        loadedRows++;
+                    } else if (!isMedExFormat && parts.size() == 5) {
+                        String name = normalizeName(parts.get(0));
+                        String brand = parts.get(1).trim();
+                        String shop = parts.get(2).trim();
+                        String location = parts.get(3).trim();
+                        double price = Double.parseDouble(parts.get(4).trim());
+                        all.add(new Medicine(name, brand, shop, location, price));
+                        loadedRows++;
+                    } else {
+                        skippedRows++;
+                    }
+                } catch (NumberFormatException parseEx) {
+                    skippedRows++;
+                }
+            }
+            if (skippedRows > 0) {
+                System.err.println("Notice: Skipped " + skippedRows + " rows while loading " + path + ". Loaded " + loadedRows + " rows.");
+            }
+            System.out.println("Loaded " + loadedRows + " medicines from " + path + ".");
+            return loadedRows > 0;
+        } catch (IOException | NumberFormatException e) {
+            System.err.println("Warning: Could not load " + path + " (" + e.getMessage() + ").");
+            return false;
+        }
+    }
+
+    private boolean quotesBalanced(String s) {
+        long cnt = s.chars().filter(c -> c == '"').count();
+        return cnt % 2 == 0;
+    }
+
+    private List<String> parseCsvLine(String line) {
+        List<String> cols = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                cols.add(cur.toString());
+                cur.setLength(0);
+            } else {
+                cur.append(c);
+            }
+        }
+        cols.add(cur.toString());
+        return cols;
+    }
+
+    private double parsePrice(String raw) {
+        String cleaned = raw == null ? "" : raw.replaceAll("[^0-9.]", "");
+        if (cleaned.isEmpty()) throw new NumberFormatException("Empty price value");
+        return Double.parseDouble(cleaned);
+    }
+
+    private String normalizeName(String s) {
+        if (s == null) return "";
+        String normalized = s
+                .replace('\u00A0', ' ')
+                .replaceAll("[\\u2010-\\u2015\\u2212]", "-"); // normalize various dash characters to hyphen
+        normalized = normalized.trim().replaceAll("\\s+", " ");
+        return normalized;
     }
 
     private void seedInMemory() {

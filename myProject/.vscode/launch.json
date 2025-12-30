@@ -8,7 +8,10 @@
       "mainClass": "myProject.AidAccessApp",
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "Compile JavaFX",
-      "classPaths": ["${workspaceFolder}/out"],
+      "classPaths": [
+        "${workspaceFolder}/out",
+        "${userHome}/.m2/repository/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar"
+      ],
       "modulePaths": ["${workspaceFolder}/javafx-sdk-21.0.2/lib"],
       "vmArgs": "--add-modules javafx.controls,javafx.fxml",
       "env": {
