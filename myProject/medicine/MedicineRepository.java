@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 public class MedicineRepository {
     private final ObservableList<Medicine> all = FXCollections.observableArrayList();
-    private static final String CSV_FILE = "myProject/medicine/medicines.csv";
+    private static final String CSV_FILE = "medicine/medicines.csv";
 
     public MedicineRepository() {
         loadData();
